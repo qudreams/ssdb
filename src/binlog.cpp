@@ -127,7 +127,7 @@ BinlogQueue::BinlogQueue(leveldb::DB *db){
 	if(this->last_seq > LOG_QUEUE_SIZE){
 		this->min_seq = this->last_seq - LOG_QUEUE_SIZE;
 	}else{
-		this->min_seq = 1;
+		this->min_seq = 0;
 	}
 	// TODO: use binary search to find out min_seq
 	if(this->find_next(this->min_seq, &log) == 1){
@@ -165,7 +165,7 @@ BinlogQueue::BinlogQueue(leveldb::DB *db){
 
 BinlogQueue::~BinlogQueue(){
 	thread_quit = true;
-	while(1){
+	for(int i=0; i<100; i++){
 		if(thread_quit == false){
 			break;
 		}
