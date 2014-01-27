@@ -65,6 +65,7 @@ static proc_map_t proc_map;
 	DEF_PROC(hscan);
 	DEF_PROC(hrscan);
 	DEF_PROC(hkeys);
+	DEF_PROC(hvals);
 	DEF_PROC(hlist);
 	DEF_PROC(hexists);
 	DEF_PROC(multi_hexists);
@@ -111,6 +112,7 @@ static proc_map_t proc_map;
 	DEF_PROC(key_range);
 	DEF_PROC(ttl);
 	DEF_PROC(clear_binlog);
+	DEF_PROC(ping);
 #undef DEF_PROC
 
 
@@ -141,6 +143,7 @@ static Command commands[] = {
 	PROC(hscan, "rt"),
 	PROC(hrscan, "rt"),
 	PROC(hkeys, "rt"),
+	PROC(hvals, "rt"),
 	PROC(hlist, "rt"),
 	PROC(hexists, "r"),
 	PROC(multi_hexists, "r"),
@@ -192,6 +195,7 @@ static Command commands[] = {
 	PROC(key_range, "r"),
 
 	PROC(ttl, "wt"),
+	PROC(ping, "r"),
 
 	{NULL, NULL, 0, NULL}
 };
@@ -347,7 +351,7 @@ static int proc_info(Server *serv, Link *link, const Request &req, Response *res
 	resp->push_back("version");
 	resp->push_back(SSDB_VERSION);
 	
-	if(req.size() == 1 || req[1] == "cmd"){
+	if(req.size() > 1 && req[1] == "cmd"){
 		for(Command *cmd=commands; cmd->name; cmd++){
 			char buf[128];
 			snprintf(buf, sizeof(buf), "cmd.%s", cmd->name);
@@ -430,6 +434,11 @@ static int proc_ttl(Server *serv, Link *link, const Request &req, Response *resp
 		}
 		resp->push_back("ok");
 	}
+	return 0;
+}
+
+static int proc_ping(Server *serv, Link *link, const Request &req, Response *resp){
+	resp->push_back("ok");
 	return 0;
 }
 
