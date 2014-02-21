@@ -2,6 +2,7 @@ SSDB Go API Documentation {#mainpage}
 ============
 
 @author: [ideawu](http://www.ideawu.com/)
+
 modify:
 	2014-02-21 add asynchronous client API,and add connection timeout for synchronous client API by qudreams
 
