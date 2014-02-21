@@ -2,6 +2,8 @@ SSDB Go API Documentation {#mainpage}
 ============
 
 @author: [ideawu](http://www.ideawu.com/)
+modify:
+	2014-02-21 add asynchronous client API,and add connection timeout for synchronous client API by qudreams
 
 ## About
 
@@ -11,6 +13,9 @@ The Do() method will return an array of string if no error. The first element in
 
 Refer to the [PHP documentation](http://www.ideawu.com/ssdb/docs/php/) to checkout a complete list of all avilable commands and corresponding responses.
 
+the following example is for synchronous client API
+you can find the example for asynchronous client API in source file asyntest.go.
+
 ## Example
 
 	package main
@@ -18,6 +23,7 @@ Refer to the [PHP documentation](http://www.ideawu.com/ssdb/docs/php/) to checko
 	import (
 			"fmt"
 			"os"
+			//"time"
 			"./ssdb"
 		   )
 		   
@@ -25,6 +31,7 @@ Refer to the [PHP documentation](http://www.ideawu.com/ssdb/docs/php/) to checko
 		ip := "127.0.0.1";
 		port := 8888;
 		db, err := ssdb.Connect(ip, port);
+		//db,err := ssdb.Connect(ip,port,time.Duration(5))
 		if(err != nil){
 			os.Exit(1);
 		}
