@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
-
+	//"time"
 	"./ssdb"
 )
 
@@ -11,6 +11,8 @@ func main() {
 	ip := "127.0.0.1"
 	port := 8888
 	db, err := ssdb.Connect(ip, port)
+	//db,err := ssdb.ConnectWithTimeout(ip,port,time.Duration(5))
+	
 	if err != nil {
 		os.Exit(1)
 	}
