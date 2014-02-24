@@ -11,7 +11,6 @@ package ssdb
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"net"
 	"sync"
@@ -39,8 +38,9 @@ const (
 )
 
 const (
-	DefaultReqChanCap = 4096
-	DefaultRspChanCap = 4096
+	DefaultReqChanCap   = 4096
+	DefaultRspChanCap   = 4096
+	DefaultFaultChanCap = 4096
 )
 
 type SsdbAsynReply struct {
@@ -60,6 +60,7 @@ type SsdbAsynClient struct {
 	client         *Client
 	requestsQueue  chan *SsdbAsynRequest
 	responsesQueue chan *SsdbAsynRequest
+	faults         chan error
 	reqsCntl       chan CntlCode
 	respsCntl      chan CntlCode
 	isShutdown     bool
@@ -70,17 +71,18 @@ type SsdbAsynClient struct {
 func newSsdbAsynClient() (*SsdbAsynClient, error) {
 	asynClient := new(SsdbAsynClient)
 	if asynClient == nil {
-		return nil, errors.New("newSsdbAsynclient: out of memory to allocate memory")
+		return nil, fmt.Errorf("newSsdbAsynclient: out of memory to allocate memory")
 	}
 
 	client := new(Client)
 	if client == nil {
-		return nil, errors.New("newSsdbAsynclient: out of memory to allocate memory")
+		return nil, fmt.Errorf("newSsdbAsynclient: out of memory to allocate memory")
 	}
 
 	asynClient.client = client
 	asynClient.requestsQueue = make(chan *SsdbAsynRequest, DefaultReqChanCap)
 	asynClient.responsesQueue = make(chan *SsdbAsynRequest, DefaultRspChanCap)
+	asynClient.faults = make(chan error, DefaultFaultChanCap)
 	asynClient.reqsCntl = make(chan CntlCode, 1)
 	asynClient.respsCntl = make(chan CntlCode, 1)
 	asynClient.shutdown = make(chan bool, 1)
@@ -93,7 +95,8 @@ func procAsynRequests(asynClient *SsdbAsynClient) {
 	defer func() {
 		if re := recover(); re != nil {
 			err := re.(error)
-			panic("proccess asynchronous request " + err.Error())
+			fault := fmt.Errorf("proccess asynchronous request %s", err.Error())
+			asynClient.faults <- fault
 		}
 	}()
 
@@ -116,7 +119,7 @@ func procAsynRequests(asynClient *SsdbAsynClient) {
 			if ok {
 				err := asynClient.sendRequest(req)
 				if err != nil {
-					panic(err.Error())
+					panic(err)
 				}
 				asynClient.responsesQueue <- req
 			}
@@ -128,7 +131,8 @@ func procAsynResponses(asynClient *SsdbAsynClient) {
 	defer func() {
 		if re := recover(); re != nil {
 			err := re.(error)
-			panic("process asynchronous response " + err.Error())
+			fault := fmt.Errorf("process asynchronous response %s", err.Error())
+			asynClient.faults <- fault
 		}
 	}()
 
@@ -154,11 +158,10 @@ func procAsynResponses(asynClient *SsdbAsynClient) {
 	}
 }
 
-func (asynClient *SsdbAsynClient) startup() error {
+func (asynClient *SsdbAsynClient) startup() (err error) {
 	defer func() {
 		if re := recover(); re != nil {
-			err := re.(error)
-			panic("SsdbAsyn: failed to start up" + err.Error())
+			err = fmt.Errorf("SsdbAsyn: failed to start up: %v", re.(error))
 		}
 	}()
 
@@ -229,7 +232,8 @@ func (asynClient *SsdbAsynClient) SsdbAsynDisconnect() {
 		defer func() {
 			if re := recover(); re != nil {
 				err := re.(error)
-				panic("Ssdb Asynchronous disconnect " + err.Error())
+				fault := fmt.Errorf("Ssdb Asynchronous disconnect %s", err.Error())
+				asynClient.faults <- fault
 			}
 		}()
 
@@ -262,20 +266,15 @@ func (asynClient *SsdbAsynClient) SsdbAsynSetTimeout(sec time.Duration) {
 }
 
 func (asynClient *SsdbAsynClient) Do(callback responseCallback, args ...interface{}) error {
-
-	defer func() {
-		if re := recover(); re != nil {
-			err := re.(error)
-			panic("SsdbAsyn: failed to send request to client " + err.Error())
-		}
-	}()
-
 	select {
 	case shutdown := <-asynClient.shutdown:
 		if shutdown {
 			close(asynClient.requestsQueue) //sender close the channel
 			return fmt.Errorf("connection to SSDB has been closed")
 		}
+	case <-asynClient.faults:
+		close(asynClient.requestsQueue)
+		return fmt.Errorf("something bad happened,so we have no choice but to stop.")
 	default:
 	}
 
