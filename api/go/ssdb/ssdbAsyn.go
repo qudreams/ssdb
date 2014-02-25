@@ -267,13 +267,12 @@ func (asynClient *SsdbAsynClient) SsdbAsynSetTimeout(sec time.Duration) {
 
 func (asynClient *SsdbAsynClient) Do(callback responseCallback, args ...interface{}) error {
 	select {
-	case shutdown := <-asynClient.shutdown:
-		if shutdown {
+	case _, ok := <-asynClient.shutdown:
+		if ok { //the channel hasn't been closed,so we close it.
 			close(asynClient.requestsQueue) //sender close the channel
-			return fmt.Errorf("connection to SSDB has been closed")
 		}
+		return fmt.Errorf("connection to SSDB has been closed")
 	case <-asynClient.faults:
-		close(asynClient.requestsQueue)
 		return fmt.Errorf("something bad happened,so we have no choice but to stop.")
 	default:
 	}
@@ -357,4 +356,13 @@ func (asyncClient *SsdbAsynClient) recvResponse() *SsdbAsynReply {
 	}
 
 	return rep
+}
+
+func (asynClient *SsdbAsynClient) IsShutdown() bool {
+	defer asynClient.mutex.Unlock()
+
+	asynClient.mutex.Lock()
+	b := asynClient.isShutdown
+
+	return b
 }
