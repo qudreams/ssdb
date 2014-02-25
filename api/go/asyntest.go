@@ -15,14 +15,28 @@ func main() {
 		return
 	}
 
-	//set read and write timeout
+	// set read and write timeout
 	client.SsdbAsynSetTimeout(time.Duration(2))
+	for i := 0; i < 20; i++ {
+		key := fmt.Sprintf("key%d", i)
+		go func(k string, v int) {
+			client.Do(replyCallback, "set", k, v)
+			client.Do(replyCallback, "get", k)
+			client.Do(replyCallback, "del", k)
+		}(key, i)
+	}
 
-	client.Do(replyCallback, "set", "key1", "20")
-	client.Do(replyCallback, "get", "key1")
+	for i := 0; i < 20; i++ {
+		name := fmt.Sprintf("zset%d", i)
+		value := fmt.Sprintf("zv%d", i)
+		go func(nm string, v string, sc int) {
+			client.Do(replyCallback, "zset", nm, v, sc)
+			client.Do(replyCallback, "zscan", nm, "", "", "", 100)
+			client.Do(replyCallback, "zclear", nm)
+		}(name, value, i)
+	}
 
 	time.Sleep(4 * time.Second)
-
 }
 
 func replyCallback(reply *ssdb.SsdbAsynReply, asynClient *ssdb.SsdbAsynClient) {
