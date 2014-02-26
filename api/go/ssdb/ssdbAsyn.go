@@ -65,6 +65,7 @@ type SsdbAsynClient struct {
 	respsCntl      chan CntlCode
 	isShutdown     bool
 	shutdown       chan bool
+	serverAddr     string //host:port
 	mutex          sync.Mutex
 }
 
@@ -176,7 +177,9 @@ func (asynClient *SsdbAsynClient) startup() (err error) {
 //connect SSDB server without timeout
 //Note: it just support IPv4
 func SsdbAsynConnect(ip string, port int) (*SsdbAsynClient, error) {
-	addr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", ip, port))
+	strAddr := fmt.Sprintf("%s:%d", ip, port)
+
+	addr, err := net.ResolveTCPAddr("tcp", strAddr)
 	if err != nil {
 		return nil, fmt.Errorf("SsdbAsyn: failed to parse server address %s", err.Error())
 	}
@@ -191,6 +194,7 @@ func SsdbAsynConnect(ip string, port int) (*SsdbAsynClient, error) {
 		return nil, fmt.Errorf("SsdbAsyn: %s", err.Error())
 	}
 
+	asynClient.serverAddr = strAddr
 	client := asynClient.client
 	client.sock = sock
 
@@ -217,6 +221,7 @@ func SsdbAsynConnectWithTimeout(ip string, port int, sec time.Duration) (*SsdbAs
 		return nil, fmt.Errorf("SsdbAsyn: type assert failed from net.Conn to net.TCPConn")
 	}
 
+	asynClient.serverAddr = addr
 	client := asynClient.client
 	client.sock = tcpConn
 
@@ -271,7 +276,7 @@ func (asynClient *SsdbAsynClient) Do(callback responseCallback, args ...interfac
 		if ok { //the channel hasn't been closed,so we close it.
 			close(asynClient.requestsQueue) //sender close the channel
 		}
-		return fmt.Errorf("connection to SSDB has been closed")
+		return fmt.Errorf("connection to SSDB server %s has been closed", asynClient.serverAddr)
 	case <-asynClient.faults:
 		return fmt.Errorf("something bad happened,so we have no choice but to stop.")
 	default:
