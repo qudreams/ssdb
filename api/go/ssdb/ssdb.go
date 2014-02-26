@@ -93,8 +93,7 @@ func (c *Client) Del(key string) (interface{}, error) {
 	return nil, fmt.Errorf("bad response")
 }
 
-func (c *Client) send(args []interface{}) error {
-	var buf bytes.Buffer
+func encode(res *bytes.Buffer, args []interface{}) error {
 	for _, arg := range args {
 		var s string
 		switch arg := arg.(type) {
@@ -119,13 +118,25 @@ func (c *Client) send(args []interface{}) error {
 		default:
 			return fmt.Errorf("bad arguments")
 		}
-		buf.WriteString(fmt.Sprintf("%d", len(s)))
-		buf.WriteByte('\n')
-		buf.WriteString(s)
-		buf.WriteByte('\n')
+		res.WriteString(fmt.Sprintf("%d", len(s)))
+		res.WriteByte('\n')
+		res.WriteString(s)
+		res.WriteByte('\n')
 	}
-	buf.WriteByte('\n')
-	_, err := c.sock.Write(buf.Bytes())
+	res.WriteByte('\n')
+
+	return nil
+}
+
+func (c *Client) send(args []interface{}) error {
+	var buf bytes.Buffer
+	err := encode(&buf, args)
+	if err != nil {
+		return err
+	}
+
+	_, err = c.sock.Write(buf.Bytes())
+
 	return err
 }
 
