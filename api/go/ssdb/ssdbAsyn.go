@@ -286,36 +286,10 @@ func (asynClient *SsdbAsynClient) Do(callback responseCallback, args ...interfac
 	req.callback = callback
 
 	var buf *bytes.Buffer = &req.packet
-	for _, arg := range args {
-		var s string
-		switch arg := arg.(type) {
-		case string:
-			s = arg
-		case []byte:
-			s = string(arg)
-		case int:
-			s = fmt.Sprintf("%d", arg)
-		case int64:
-			s = fmt.Sprintf("%d", arg)
-		case float64:
-			s = fmt.Sprintf("%f", arg)
-		case bool:
-			if arg {
-				s = "1"
-			} else {
-				s = "0"
-			}
-		case nil:
-			s = ""
-		default:
-			return fmt.Errorf("bad arguments")
-		}
-		buf.WriteString(fmt.Sprintf("%d", len(s)))
-		buf.WriteByte('\n')
-		buf.WriteString(s)
-		buf.WriteByte('\n')
+	err := encode(buf, args)
+	if err != nil {
+		return err
 	}
-	buf.WriteByte('\n')
 
 	asynClient.requestsQueue <- req
 
