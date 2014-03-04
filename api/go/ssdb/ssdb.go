@@ -3,6 +3,7 @@ package ssdb
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"net"
 	"strconv"
 	"strings"
@@ -14,23 +15,22 @@ type Client struct {
 	recv_buf bytes.Buffer
 }
 
-func Connect(ip string, port int) (*Client, error) {
-	addr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", ip, port))
+func connect(strAddr string) (*net.TCPConn, error) {
+	addr, err := net.ResolveTCPAddr("tcp", strAddr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("SsdbAsyn: failed to parse server address %s", err.Error())
 	}
-	sock, err := net.DialTCP("tcp", nil, addr)
+
+	tcpConn, err := net.DialTCP("tcp", nil, addr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("SsdbAsyn: %s", err.Error())
 	}
-	var c Client
-	c.sock = sock
-	return &c, nil
+
+	return tcpConn, nil
 }
 
-func ConnectWithTimeout(ip string, port int, sec time.Duration) (*Client, error) {
-	addr := fmt.Sprintf("%s:%d", ip, port)
-	conn, err := net.DialTimeout("tcp", addr, sec*time.Second)
+func connectTimeout(strAddr string, sec time.Duration) (*net.TCPConn, error) {
+	conn, err := net.DialTimeout("tcp", strAddr, sec*time.Second)
 	if err != nil {
 		return nil, fmt.Errorf("SsdbAsyn: %s", err.Error())
 	}
@@ -41,10 +41,25 @@ func ConnectWithTimeout(ip string, port int, sec time.Duration) (*Client, error)
 		return nil, fmt.Errorf("SsdbAsyn: type assert failed from net.Conn to net.TCPConn")
 	}
 
-	client := new(Client)
-	client.sock = tcpConn
+	return tcpConn, nil
+}
 
-	return client, err
+func Connect(ip string, port int, sec time.Duration) (*Client, error) {
+	var c Client
+	var err error
+
+	addr := fmt.Sprintf("%s:%d", ip, port)
+	if sec > time.Duration(0) {
+		c.sock, err = connectTimeout(addr, sec)
+	} else {
+		c.sock, err = connect(addr)
+	}
+
+	if err == nil {
+		return &c, nil
+	} else {
+		return nil, err
+	}
 }
 
 func (c *Client) Do(args ...interface{}) ([]string, error) {
@@ -154,7 +169,11 @@ func (c *Client) recv() ([]string, error) {
 
 		n, err := c.sock.Read(tmp[0:])
 		if err != nil {
-			return nil, err
+			if err == io.EOF {
+				return nil, fmt.Errorf("server close connection")
+			} else {
+				return nil, err
+			}
 		}
 
 		c.recv_buf.Write(tmp[0:n])
