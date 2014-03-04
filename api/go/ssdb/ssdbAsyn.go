@@ -174,58 +174,37 @@ func (asynClient *SsdbAsynClient) startup() (err error) {
 	return nil
 }
 
-//connect SSDB server without timeout
-//Note: it just support IPv4
-func SsdbAsynConnect(ip string, port int) (*SsdbAsynClient, error) {
+//connect SSDB server
+//Note:
+//it just support IPv4
+//if sec is greater than zero,the function will connect SSDB-server with a timeout.
+func SsdbAsynConnect(ip string, port int, sec time.Duration) (*SsdbAsynClient, error) {
+	var conn *net.TCPConn
+
+	asynClient, err := newSsdbAsynClient()
+	if err != nil {
+		return nil, err
+	}
+
 	strAddr := fmt.Sprintf("%s:%d", ip, port)
 
-	addr, err := net.ResolveTCPAddr("tcp", strAddr)
+	if sec > time.Duration(0) {
+		conn, err = connectTimeout(strAddr, sec)
+	} else {
+		conn, err = connect(strAddr)
+	}
+
+	if err == nil {
+		asynClient.serverAddr = strAddr
+		client := asynClient.client
+		client.sock = conn
+
+		err = asynClient.startup()
+	}
+
 	if err != nil {
-		return nil, fmt.Errorf("SsdbAsyn: failed to parse server address %s", err.Error())
+		asynClient = nil
 	}
-
-	asynClient, err := newSsdbAsynClient()
-	if err != nil {
-		return nil, err
-	}
-
-	sock, err := net.DialTCP("tcp", nil, addr)
-	if err != nil {
-		return nil, fmt.Errorf("SsdbAsyn: %s", err.Error())
-	}
-
-	asynClient.serverAddr = strAddr
-	client := asynClient.client
-	client.sock = sock
-
-	err = asynClient.startup()
-
-	return asynClient, err
-}
-
-func SsdbAsynConnectWithTimeout(ip string, port int, sec time.Duration) (*SsdbAsynClient, error) {
-	asynClient, err := newSsdbAsynClient()
-	if err != nil {
-		return nil, err
-	}
-
-	addr := fmt.Sprintf("%s:%d", ip, port)
-	conn, err := net.DialTimeout("tcp", addr, sec*time.Second)
-	if err != nil {
-		return nil, fmt.Errorf("SsdbAsyn: %s", err.Error())
-	}
-
-	tcpConn, ok := conn.(*net.TCPConn)
-	if !ok {
-		conn.Close()
-		return nil, fmt.Errorf("SsdbAsyn: type assert failed from net.Conn to net.TCPConn")
-	}
-
-	asynClient.serverAddr = addr
-	client := asynClient.client
-	client.sock = tcpConn
-
-	err = asynClient.startup()
 
 	return asynClient, err
 }
