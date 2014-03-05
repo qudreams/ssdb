@@ -9,14 +9,17 @@ import (
 )
 
 func main() {
-	client, err := ssdb.SsdbAsynConnect("127.0.0.1", 8888, time.Duration(5))
+	//connect server with a timeout 5 seconds.
+	client, err := ssdb.SsdbAsynConnect("127.0.0.1", 8888, 5)
+	// connect server without timeout
+	// client, err := ssdb.SsdbAsynConnect("127.0.0.1", 8888,0)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err.Error())
 		return
 	}
 
 	// set read and write timeout
-	client.SsdbAsynSetTimeout(time.Duration(2))
+	client.SsdbAsynSetTimeout(2)
 
 	for i := 0; i < 20; i++ {
 		key := fmt.Sprintf("key%d", i)
