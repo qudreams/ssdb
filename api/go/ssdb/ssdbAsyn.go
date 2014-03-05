@@ -163,7 +163,7 @@ func SsdbAsynConnect(ip string, port int, sec time.Duration) (*SsdbAsynClient, e
 	//}
 
 	strAddr := fmt.Sprintf("%s:%d", ip, port)
-
+	var err error
 	if sec > time.Duration(0) {
 		conn, err = connectTimeout(strAddr, sec)
 	} else {
