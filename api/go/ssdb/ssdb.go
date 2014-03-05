@@ -29,8 +29,8 @@ func connect(strAddr string) (*net.TCPConn, error) {
 	return tcpConn, nil
 }
 
-func connectTimeout(strAddr string, sec time.Duration) (*net.TCPConn, error) {
-	conn, err := net.DialTimeout("tcp", strAddr, sec*time.Second)
+func connectTimeout(strAddr string, sec int) (*net.TCPConn, error) {
+	conn, err := net.DialTimeout("tcp", strAddr, time.Duration(sec)*time.Second)
 	if err != nil {
 		return nil, fmt.Errorf("SsdbAsyn: %s", err.Error())
 	}
@@ -44,12 +44,12 @@ func connectTimeout(strAddr string, sec time.Duration) (*net.TCPConn, error) {
 	return tcpConn, nil
 }
 
-func Connect(ip string, port int, sec time.Duration) (*Client, error) {
+func Connect(ip string, port int, sec int) (*Client, error) {
 	var c Client
 	var err error
 
 	addr := fmt.Sprintf("%s:%d", ip, port)
-	if sec > time.Duration(0) {
+	if sec > 0 {
 		c.sock, err = connectTimeout(addr, sec)
 	} else {
 		c.sock, err = connect(addr)
@@ -241,8 +241,8 @@ func (c *Client) Close() error {
 }
 
 // set read and write timeout
-func (c *Client) SetDeadline(sec time.Duration) error {
-	deadline := time.Now().Add(sec * time.Second)
+func (c *Client) SetTimeout(sec int) error {
+	deadline := time.Now().Add(time.Duration(sec) * time.Second)
 
 	return c.sock.SetDeadline(deadline)
 }
