@@ -66,30 +66,21 @@ type SsdbAsynClient struct {
 	isShutdown     bool
 	shutdown       chan bool
 	serverAddr     string //host:port
-	mutex          sync.Mutex
+	mutex          *sync.Mutex
 }
 
-func newSsdbAsynClient() (*SsdbAsynClient, error) {
-	asynClient := new(SsdbAsynClient)
-	if asynClient == nil {
-		return nil, fmt.Errorf("newSsdbAsynclient: out of memory to allocate memory")
+func newSsdbAsynClient() *SsdbAsynClient {
+	return &SsdbAsynClient{
+		client:         new(Client),
+		requestsQueue:  make(chan *SsdbAsynRequest, DefaultReqChanCap),
+		responsesQueue: make(chan *SsdbAsynRequest, DefaultRspChanCap),
+		faults:         make(chan error, DefaultFaultChanCap),
+		reqsCntl:       make(chan CntlCode, 1),
+		respsCntl:      make(chan CntlCode, 1),
+		shutdown:       make(chan bool, 1),
+		isShutdown:     false,
+		mutex:          new(sync.Mutex),
 	}
-
-	client := new(Client)
-	if client == nil {
-		return nil, fmt.Errorf("newSsdbAsynclient: out of memory to allocate memory")
-	}
-
-	asynClient.client = client
-	asynClient.requestsQueue = make(chan *SsdbAsynRequest, DefaultReqChanCap)
-	asynClient.responsesQueue = make(chan *SsdbAsynRequest, DefaultRspChanCap)
-	asynClient.faults = make(chan error, DefaultFaultChanCap)
-	asynClient.reqsCntl = make(chan CntlCode, 1)
-	asynClient.respsCntl = make(chan CntlCode, 1)
-	asynClient.shutdown = make(chan bool, 1)
-	asynClient.isShutdown = false
-
-	return asynClient, nil
 }
 
 func procAsynRequests(asynClient *SsdbAsynClient) {
@@ -101,18 +92,10 @@ func procAsynRequests(asynClient *SsdbAsynClient) {
 		}
 	}()
 
-	select {
-	case cntl := <-asynClient.reqsCntl:
-		if cntl == stop {
-			close(asynClient.responsesQueue)
-			return
-		}
-	}
-
 	for {
 		select {
-		case cntl := <-asynClient.reqsCntl:
-			if cntl == stop {
+		case _, ok := <-asynClient.reqsCntl:
+			if !ok {
 				close(asynClient.responsesQueue) //Note: sender close the channel
 				return
 			}
@@ -137,17 +120,10 @@ func procAsynResponses(asynClient *SsdbAsynClient) {
 		}
 	}()
 
-	select {
-	case cntl := <-asynClient.respsCntl:
-		if cntl == stop {
-			return
-		}
-	}
-
 	for {
 		select {
-		case cntl := <-asynClient.respsCntl:
-			if cntl == stop {
+		case _, ok := <-asynClient.respsCntl:
+			if !ok {
 				return
 			}
 		case rsp, ok := <-asynClient.responsesQueue:
@@ -181,13 +157,13 @@ func (asynClient *SsdbAsynClient) startup() (err error) {
 func SsdbAsynConnect(ip string, port int, sec time.Duration) (*SsdbAsynClient, error) {
 	var conn *net.TCPConn
 
-	asynClient, err := newSsdbAsynClient()
-	if err != nil {
-		return nil, err
-	}
+	asynClient := newSsdbAsynClient()
+	//if err != nil {
+	//	return nil, err
+	//}
 
 	strAddr := fmt.Sprintf("%s:%d", ip, port)
-
+	var err error
 	if sec > time.Duration(0) {
 		conn, err = connectTimeout(strAddr, sec)
 	} else {
@@ -229,8 +205,8 @@ func (asynClient *SsdbAsynClient) SsdbAsynDisconnect() {
 		asynClient.isShutdown = true
 		asynClient.mutex.Unlock()
 
-		asynClient.reqsCntl <- stop
-		asynClient.respsCntl <- stop
+		close(asynClient.reqsCntl)
+		close(asynClient.respsCntl)
 		asynClient.shutdown <- true
 
 		/*Note:
