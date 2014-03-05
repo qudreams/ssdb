@@ -12,9 +12,7 @@ package ssdb
 import (
 	"bytes"
 	"fmt"
-	"net"
 	"sync"
-	"time"
 )
 
 type CntlCode byte
@@ -167,9 +165,10 @@ func (asynClient *SsdbAsynClient) startup() (err error) {
 	}()
 
 	go procAsynRequests(asynClient)
-	asynClient.reqsCntl <- start
 	go procAsynResponses(asynClient)
+
 	asynClient.respsCntl <- start
+	asynClient.reqsCntl <- start
 
 	return nil
 }
@@ -178,26 +177,18 @@ func (asynClient *SsdbAsynClient) startup() (err error) {
 //Note:
 //it just support IPv4
 //if sec is greater than zero,the function will connect SSDB-server with a timeout.
-func SsdbAsynConnect(ip string, port int, sec time.Duration) (*SsdbAsynClient, error) {
-	var conn *net.TCPConn
+func SsdbAsynConnect(ip string, port int, sec int) (*SsdbAsynClient, error) {
+	var client *Client
 
 	asynClient, err := newSsdbAsynClient()
 	if err != nil {
 		return nil, err
 	}
 
-	strAddr := fmt.Sprintf("%s:%d", ip, port)
-
-	if sec > time.Duration(0) {
-		conn, err = connectTimeout(strAddr, sec)
-	} else {
-		conn, err = connect(strAddr)
-	}
-
+	client, err = Connect(ip, port, sec)
 	if err == nil {
-		asynClient.serverAddr = strAddr
-		client := asynClient.client
-		client.sock = conn
+		asynClient.serverAddr = fmt.Sprintf("%s:%d", ip, port)
+		asynClient.client = client
 
 		err = asynClient.startup()
 	}
@@ -245,8 +236,8 @@ func (asynClient *SsdbAsynClient) SsdbAsynDisconnect() {
 	}()
 }
 
-func (asynClient *SsdbAsynClient) SsdbAsynSetTimeout(sec time.Duration) {
-	asynClient.client.SetDeadline(sec)
+func (asynClient *SsdbAsynClient) SsdbAsynSetTimeout(sec int) {
+	asynClient.client.SetTimeout(sec)
 }
 
 func (asynClient *SsdbAsynClient) Do(callback responseCallback, args ...interface{}) error {
