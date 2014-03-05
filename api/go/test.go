@@ -4,19 +4,19 @@ import (
 	"./ssdb"
 	"fmt"
 	"os"
-	"time"
 )
 
 func main() {
 	ip := "127.0.0.1"
 	port := 8888
-	db, err := ssdb.Connect(ip, port, time.Duration(5))
+	db, err := ssdb.Connect(ip, port,5)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
-
+	
 	defer db.Close()
+	db.SetTimeout(2)
 
 	var val interface{}
 	db.Set("a", "xxx")
