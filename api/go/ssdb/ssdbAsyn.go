@@ -99,14 +99,6 @@ func procAsynRequests(asynClient *SsdbAsynClient) {
 		}
 	}()
 
-	select {
-	case cntl := <-asynClient.reqsCntl:
-		if cntl == stop {
-			close(asynClient.responsesQueue)
-			return
-		}
-	}
-
 	for {
 		select {
 		case cntl := <-asynClient.reqsCntl:
@@ -134,13 +126,6 @@ func procAsynResponses(asynClient *SsdbAsynClient) {
 			asynClient.faults <- fault
 		}
 	}()
-
-	select {
-	case cntl := <-asynClient.respsCntl:
-		if cntl == stop {
-			return
-		}
-	}
 
 	for {
 		select {
