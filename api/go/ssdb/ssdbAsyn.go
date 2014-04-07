@@ -11,6 +11,7 @@ package ssdb
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"sync"
 )
@@ -70,12 +71,12 @@ type SsdbAsynClient struct {
 func newSsdbAsynClient() (*SsdbAsynClient, error) {
 	asynClient := new(SsdbAsynClient)
 	if asynClient == nil {
-		return nil, fmt.Errorf("newSsdbAsynclient: out of memory to allocate memory")
+		return nil, errors.New("newSsdbAsynclient: out of memory to allocate memory")
 	}
 
 	client := new(Client)
 	if client == nil {
-		return nil, fmt.Errorf("newSsdbAsynclient: out of memory to allocate memory")
+		return nil, errors.New("newSsdbAsynclient: out of memory to allocate memory")
 	}
 
 	asynClient.client = client
@@ -94,7 +95,7 @@ func procAsynRequests(asynClient *SsdbAsynClient) {
 	defer func() {
 		if re := recover(); re != nil {
 			err := re.(error)
-			fault := fmt.Errorf("proccess asynchronous request %s", err.Error())
+			fault := errors.New("proccess asynchronous request " + err.Error())
 			asynClient.faults <- fault
 		}
 	}()
@@ -122,7 +123,7 @@ func procAsynResponses(asynClient *SsdbAsynClient) {
 	defer func() {
 		if re := recover(); re != nil {
 			err := re.(error)
-			fault := fmt.Errorf("process asynchronous response %s", err.Error())
+			fault := errors.New("process asynchronous response " + err.Error())
 			asynClient.faults <- fault
 		}
 	}()
@@ -145,7 +146,7 @@ func procAsynResponses(asynClient *SsdbAsynClient) {
 func (asynClient *SsdbAsynClient) startup() (err error) {
 	defer func() {
 		if re := recover(); re != nil {
-			err = fmt.Errorf("SsdbAsyn: failed to start up: %v", re.(error))
+			err = errors.New("SsdbAsyn: failed to start up: " + re.(error).Error())
 		}
 	}()
 
@@ -192,7 +193,7 @@ func (asynClient *SsdbAsynClient) SsdbAsynDisconnect() {
 		defer func() {
 			if re := recover(); re != nil {
 				err := re.(error)
-				fault := fmt.Errorf("Ssdb Asynchronous disconnect %s", err.Error())
+				fault := errors.New("Ssdb Asynchronous disconnect " + err.Error())
 				asynClient.faults <- fault
 			}
 		}()
@@ -231,9 +232,9 @@ func (asynClient *SsdbAsynClient) Do(callback responseCallback, args ...interfac
 		if ok { //the channel hasn't been closed,so we close it.
 			close(asynClient.requestsQueue) //sender close the channel
 		}
-		return fmt.Errorf("connection to SSDB server %s has been closed", asynClient.serverAddr)
+		return errors.New("connection to SSDB server " + asynClient.serverAddr + " has been closed")
 	case <-asynClient.faults:
-		return fmt.Errorf("something bad happened,so we have no choice but to stop.")
+		return errors.New("something bad happened,so we have no choice but to stop.")
 	default:
 	}
 
