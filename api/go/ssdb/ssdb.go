@@ -2,6 +2,7 @@ package ssdb
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -19,12 +20,12 @@ type Client struct {
 func connect(strAddr string) (*net.TCPConn, error) {
 	addr, err := net.ResolveTCPAddr("tcp", strAddr)
 	if err != nil {
-		return nil, fmt.Errorf("SsdbAsyn: failed to parse server address %s", err.Error())
+		return nil, errors.New("SsdbAsyn: failed to parse server address " + err.Error())
 	}
 
 	tcpConn, err := net.DialTCP("tcp", nil, addr)
 	if err != nil {
-		return nil, fmt.Errorf("SsdbAsyn: %s", err.Error())
+		return nil, errors.New("SsdbAsyn: " + err.Error())
 	}
 
 	return tcpConn, nil
@@ -33,13 +34,13 @@ func connect(strAddr string) (*net.TCPConn, error) {
 func connectTimeout(strAddr string, sec int) (*net.TCPConn, error) {
 	conn, err := net.DialTimeout("tcp", strAddr, time.Duration(sec)*time.Second)
 	if err != nil {
-		return nil, fmt.Errorf("SsdbAsyn: %s", err.Error())
+		return nil, errors.New("SsdbAsyn: " + err.Error())
 	}
 
 	tcpConn, ok := conn.(*net.TCPConn)
 	if !ok {
 		conn.Close()
-		return nil, fmt.Errorf("SsdbAsyn: type assert failed from net.Conn to net.TCPConn")
+		return nil, errors.New("SsdbAsyn: type assert failed from net.Conn to net.TCPConn")
 	}
 
 	return tcpConn, nil
@@ -81,7 +82,7 @@ func (c *Client) Set(key string, val string) (interface{}, error) {
 	if len(resp) == 1 && resp[0] == "ok" {
 		return true, nil
 	}
-	return nil, fmt.Errorf("bad response")
+	return nil, errors.New("bad response")
 }
 
 // TODO: Will somebody write addition semantic methods?
@@ -96,7 +97,7 @@ func (c *Client) Get(key string) (interface{}, error) {
 	if resp[0] == "not_found" {
 		return nil, nil
 	}
-	return nil, fmt.Errorf("bad response")
+	return nil, errors.New("bad response")
 }
 
 func (c *Client) Del(key string) (interface{}, error) {
@@ -107,7 +108,7 @@ func (c *Client) Del(key string) (interface{}, error) {
 	if len(resp) == 1 && resp[0] == "ok" {
 		return true, nil
 	}
-	return nil, fmt.Errorf("bad response")
+	return nil, errors.New("bad response")
 }
 
 func encode(res *bytes.Buffer, args []interface{}) error {
@@ -133,7 +134,7 @@ func encode(res *bytes.Buffer, args []interface{}) error {
 		case nil:
 			s = ""
 		default:
-			return fmt.Errorf("bad arguments")
+			return errors.New("bad arguments")
 		}
 		res.WriteString(fmt.Sprintf("%d", len(s)))
 		res.WriteByte('\n')
@@ -172,7 +173,7 @@ func (c *Client) recv() ([]string, error) {
 		n, err := c.sock.Read(tmp[0:])
 		if err != nil {
 			if err == io.EOF {
-				return nil, fmt.Errorf("server close connection")
+				return nil, errors.New("server close connection")
 			} else {
 				return nil, err
 			}
