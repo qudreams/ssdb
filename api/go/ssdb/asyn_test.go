@@ -23,42 +23,6 @@ func Test_Connect(t *testing.T) {
 	}
 }
 
-//testing to close connection serveral times.
-func Test_ConnectClose(t *testing.T) {
-	conn, err := SsdbAsynConnect("127.0.0.1", 8888, 0)
-	if err != nil {
-		t.Error(err.Error())
-	} else {
-		wg := new(sync.WaitGroup)
-
-		wg.Add(3)
-
-		go func() {
-			conn.SsdbAsynDisconnect()
-			wg.Done()
-		}()
-		go func() {
-			conn.SsdbAsynDisconnect()
-			wg.Done()
-		}()
-
-		go func() {
-			err = conn.Do(replyCallback, "set", "key1", 10)
-			if err != nil {
-				t.Error(err.Error())
-			}
-			wg.Done()
-		}()
-
-		err = conn.Do(replyCallback, "set", "key1", 10)
-		if err != nil {
-			t.Error(err.Error())
-		}
-
-		wg.Wait()
-	}
-}
-
 func Test_DoKeyValue(t *testing.T) {
 	conn, err := SsdbAsynConnect("127.0.0.1", 8888, 5)
 	if err != nil {
@@ -104,6 +68,35 @@ func Test_DoKeyValue(t *testing.T) {
 	}
 
 	time.Sleep(time.Duration(5))
+}
+
+//testing to close connection serveral times.
+func Test_ConnectClose(t *testing.T) {
+	conn, err := SsdbAsynConnect("127.0.0.1", 8888, 0)
+	if err != nil {
+		t.Error(err.Error())
+	} else {
+		wg := new(sync.WaitGroup)
+
+		wg.Add(2)
+
+		go func() {
+			conn.SsdbAsynDisconnect()
+			wg.Done()
+		}()
+		go func() {
+			conn.SsdbAsynDisconnect()
+			wg.Done()
+		}()
+
+		wg.Wait()
+
+		err = conn.Do(replyCallback, "set", "key1", 10)
+		if err != nil {
+			t.Error(err.Error())
+		}
+
+	}
 }
 
 func Test_ConnectWithTimeout(t *testing.T) {
