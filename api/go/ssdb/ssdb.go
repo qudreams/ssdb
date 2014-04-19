@@ -11,8 +11,9 @@ import (
 )
 
 type Client struct {
-	sock     *net.TCPConn
-	recv_buf bytes.Buffer
+	sock       *net.TCPConn
+	recv_buf   bytes.Buffer
+	seek_start int //the start position to seek '\n\n' for predicating a complete packet.
 }
 
 func connect(strAddr string) (*net.TCPConn, error) {
@@ -56,6 +57,7 @@ func Connect(ip string, port int, sec int) (*Client, error) {
 	}
 
 	if err == nil {
+		c.seek_start = 0
 		return &c, nil
 	} else {
 		return nil, err
@@ -181,8 +183,15 @@ func (c *Client) recv() ([]string, error) {
 }
 
 func (c *Client) seekNewLine() int {
-	s := c.recv_buf.String()
+	//seek from the position indicated by c.seek_start
+	s := c.recv_buf.String()[c.seek_start:]
 	idx := strings.Index(s, "\n\n")
+	if idx >= 0 {
+		idx += c.seek_start
+		c.seek_start = 0
+	} else {
+		c.seek_start += (len(s) - 1)
+	}
 
 	return idx
 }
