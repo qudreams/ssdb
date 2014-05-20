@@ -1,6 +1,7 @@
 SSDB Go API Documentation {#mainpage}
 ============
 @GO asynchromous API author: qudreams
+
 @author: [ideawu](http://www.ideawu.com/)
 
 modify:
