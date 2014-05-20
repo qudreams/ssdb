@@ -29,8 +29,7 @@ you can find the example for asynchronous client API in source file asyntest.go.
 	func main(){
 		ip := "127.0.0.1";
 		port := 8888;
-		db, err := ssdb.Connect(ip, port);
-		//db,err := ssdb.Connect(ip,port,5)
+		db,err := ssdb.Connect(ip,port,5)
 		if(err != nil){
 			os.Exit(1);
 		}
